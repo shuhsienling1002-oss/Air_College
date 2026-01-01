@@ -102,15 +102,17 @@ QUESTION_DB = {
 # ==========================================
 # 2. APP 邏輯 (畫面控制中心)
 # ==========================================
+def reset_exam():
+    """當使用者改變設定時，強制重置考試狀態"""
+    st.session_state.exam_started = False
+    st.session_state.current_questions = []
+    st.session_state.exam_results = {}
+    st.session_state.user_answers = {}
+
 def main():
     st.set_page_config(page_title="空大期末考衝刺", page_icon="📝")
     
-    # 側邊欄：設定考試參數
-    st.sidebar.title("⚙️ 考試設定")
-    selected_subject = st.sidebar.selectbox("1. 選擇科目", list(QUESTION_DB.keys()))
-    difficulty = st.sidebar.radio("2. 選擇難度", ["簡單", "中等", "困難"], index=1)
-    
-    # 初始化 Session State (紀錄考試狀態)
+    # 初始化 Session State
     if 'exam_started' not in st.session_state:
         st.session_state.exam_started = False
     if 'current_questions' not in st.session_state:
@@ -118,6 +120,21 @@ def main():
     if 'exam_results' not in st.session_state:
         st.session_state.exam_results = {}
 
+    # 側邊欄：設定考試參數 (加入 on_change 監聽)
+    st.sidebar.title("⚙️ 考試設定")
+    selected_subject = st.sidebar.selectbox(
+        "1. 選擇科目", 
+        list(QUESTION_DB.keys()),
+        on_change=reset_exam  # <--- 關鍵修改：改變科目自動重置
+    )
+    
+    difficulty = st.sidebar.radio(
+        "2. 選擇難度", 
+        ["簡單", "中等", "困難"], 
+        index=1,
+        on_change=reset_exam  # <--- 關鍵修改：改變難度自動重置
+    )
+    
     # 倒數計時顯示
     exam_date = datetime.date(2026, 1, 10)
     today = datetime.date.today()
@@ -132,6 +149,7 @@ def main():
     # === 主頁面：尚未開始考試 ===
     if not st.session_state.exam_started:
         st.info(f"準備進行科目：**{selected_subject}**")
+        st.markdown(f"難度設定：**{difficulty}**")
         st.write("點擊下方按鈕生成試卷...")
         
         if st.button("🔥 開始測驗", use_container_width=True):
@@ -149,12 +167,13 @@ def main():
             else:
                 random.shuffle(filtered_q)
                 st.session_state.current_questions = filtered_q
+                st.session_state.user_answers = {}  # 重置答案
                 st.session_state.exam_started = True
                 st.rerun()
 
     # === 考試頁面 ===
     else:
-        st.subheader(f"📖 科目：{selected_subject}")
+        st.subheader(f"📖 科目：{selected_subject} ({difficulty}模式)")
         
         with st.form("exam_form"):
             questions = st.session_state.current_questions
