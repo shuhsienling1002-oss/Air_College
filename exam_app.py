@@ -108,6 +108,7 @@ def reset_exam():
     st.session_state.current_questions = []
     st.session_state.exam_results = {}
     st.session_state.user_answers = {}
+    st.session_state.exam_finished = False # <--- 關鍵修復：這裡必須重置為 False
 
 def main():
     st.set_page_config(page_title="空大期末考衝刺", page_icon="📝")
@@ -119,20 +120,22 @@ def main():
         st.session_state.current_questions = []
     if 'exam_results' not in st.session_state:
         st.session_state.exam_results = {}
+    if 'exam_finished' not in st.session_state: # 確保此變數存在
+        st.session_state.exam_finished = False
 
     # 側邊欄：設定考試參數 (加入 on_change 監聽)
     st.sidebar.title("⚙️ 考試設定")
     selected_subject = st.sidebar.selectbox(
         "1. 選擇科目", 
         list(QUESTION_DB.keys()),
-        on_change=reset_exam  # <--- 關鍵修改：改變科目自動重置
+        on_change=reset_exam
     )
     
     difficulty = st.sidebar.radio(
         "2. 選擇難度", 
         ["簡單", "中等", "困難"], 
         index=1,
-        on_change=reset_exam  # <--- 關鍵修改：改變難度自動重置
+        on_change=reset_exam
     )
     
     # 倒數計時顯示
@@ -153,6 +156,10 @@ def main():
         st.write("點擊下方按鈕生成試卷...")
         
         if st.button("🔥 開始測驗", use_container_width=True):
+            # 確保狀態乾淨
+            st.session_state.exam_finished = False # <--- 雙重保險
+            st.session_state.exam_results = {} 
+
             # 篩選題目邏輯
             raw_questions = QUESTION_DB.get(selected_subject, [])
             filtered_q = []
@@ -259,7 +266,8 @@ def main():
                 st.session_state.exam_finished = True
 
         # === 顯示成績結果 ===
-        if st.session_state.get("exam_finished"):
+        # 增加保護：只有當 result 有資料且 finished 為 True 時才顯示
+        if st.session_state.get("exam_finished") and st.session_state.exam_results:
             res = st.session_state.exam_results
             final_score = int((res['score'] / res['total']) * 100)
             
@@ -278,6 +286,7 @@ def main():
             if st.button("🔄 再考一次"):
                 st.session_state.exam_started = False
                 st.session_state.exam_finished = False
+                st.session_state.exam_results = {}
                 st.rerun()
 
 if __name__ == "__main__":
